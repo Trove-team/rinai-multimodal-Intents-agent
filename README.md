@@ -2,37 +2,40 @@
 
 ![RinAI Multimodal UX](https://github.com/dleerdefi/rinai-multimodal-vtuber/blob/main/assets/images/RinAI%20Multimodal%20UX%20Example.png)
 
-🤖 An open-source AI V-Tuber and desktop agent that combines speech processing, LLMs, and tool automation. Features include:
+🤖 RinAI is an open-source multi-modal AI companion and desktop agent that combines speech processing, LLMs, tool automation, and hierarchical state machines. Features include:
 
 - 🎙️ Real-time STT/TTS with Groq & 11Labs
+- 💸 Near Intents Integration
 - 🐦 Twitter scheduling & automation
 - 🧠 GraphRAG memory system
 - 🔧 Extensible tool framework
 - 🎮 VTube Studio integration
 - 💬 YouTube chat interaction
-- 💸 ElizaOS Twitter Client Integration
+- 🐥ElizaOS Twitter Client Integration
 
-Built with Python, TypeScript, and modern AI services. Perfect for V-Tubing or as a powerful desktop assistant.
+RinAI is built with Python, TypeScript, modern AI services, and integration with the [NEAR Intents solver bus api](https://docs.near-intents.org/near-intents).
 
 ## Architecture Overview
 ![RinAI Architecture](https://github.com/dleerdefi/rinai-multimodal-vtuber/blob/main/assets/images/RinAI%20Multimodal%20Vtuber%20Diagram.png)
 
-## ElizaOS Twitter Client Integration
-This project uses a custom fork of the [ElizaOS Twitter Client](https://github.com/elizaOS/agent-twitter-client) that we've enhanced with an API server layer. Our version ([agent-twitter-client](https://github.com/dleerdefi/agent-twitter-client)) provides a REST API interface for the RinAI agent stack to schedule and manage tweets without requiring Twitter API keys.
+## Key Features
 
-**Key Features:**
-
+*   **NEAR Intents Integrations:** Integration with the NEAR Intents solver bus enables cross chain swaps on from a users near wallet
+*   **Hierarchical State Machines:** State machines allow for sensitive workflows to be managed securely
+*   **Approval Manager:** Approval can be implemented for tasks to provide valuable oversight to agent workflows
 *   **Multimodal AI:** Integrates speech-to-text, text-to-speech, large language models, and tool calling for rich and interactive conversations.
 *   **Live Streaming Ready:** Designed for V-Tubing! Operate fully autonomously, engaging directly with chat or with a live host using speech-to-text.
 *   **Desktop Agent:** Operate fully autonomously, engaging directly with chat or with a live host using speech-to-text.
 *   **Ultra-Fast Speech Processing:** Utilizes Groq for Whisper AI, delivering lightning-fast and reliable speech-to-text transcription.
 *   **Tool-Calling Powerhouse:** Equipped with tools including:
+*   **Limit Order Agent:** Use Near intents to schedule limit orders and swap across multiple chains
     *   **Twitter Agent:** Create and schedule tweets
     *   **Task Scheduling Agent:** Schedule tweet posting and other background tasks
-    *   **Web Queries with Reasoning:** Leverage Perplexity's DeepSeek R1 API for web queries
+    *   **Perplexity Integration:** Leverage Perplexity's DeepSeek R1 API for web queries
     *   **Cryptocurrency Price & Analytics:** Obtain live and historical crypto price data
-    *   **Time & Date Conversion:** Get current time in any location or convert times between different timezones
-    *   **Weather Updates:** Get current weather conditions and forecasts for any location
+ 
+
+
 *   **Advanced Chat Agent:**  Based on the [Rin AI Chat Agentic Chat Stack](https://github.com/dleerdefi/peak-ai-agent-stack):
     *   **GraphRAG Memory:** Graph-based memory for context-aware responses
     *   **Keyword-Based Intent Recognition:** Fast keyword extraction for memory relevance
@@ -68,11 +71,17 @@ This project uses a custom fork of the [ElizaOS Twitter Client](https://github.c
    * 11Labs (Text-to-Speech)
    * Perplexity (Web Queries)
 
-4. **Installation:**
+4. **NEAR Intents Configuration:**
+*NEAR Account ID and Private Key (Private key is extremely sensitive information **BE CAREFUL HANDLING**)
+*Multi-chain Account IDs (Solana, Ethereum, Bitcoin,etc)
+
+_Be sure to add destination wallets for assets that cannot be bridged to Near wallet_
+
+5. **Installation:**
    ```bash
    # Clone main repository
-   git clone [rinai-multimodal-vtuber](https://github.com/dleerdefi/rinai-multimodal-vtuber)
-   cd rinai-multimodal-vtuber
+   git clone [Your Main RinAI Multimodal Intents Agent Repo URL] rinai-multimodal-Intents-agent
+   cd rinai-multimodal-Intents-agent
 
    # Setup Python environment
    python -m venv venv
@@ -80,13 +89,12 @@ This project uses a custom fork of the [ElizaOS Twitter Client](https://github.c
    pip install -r requirements.txt
 
    # Setup Twitter API Client
-   git clone [agent-twitter-client](https://github.com/dleerdefi/agent-twitter-client)
+   git clone [Your Forked ElizaOS Twitter Client Repo URL] twitter-client
    cd twitter-client
    npm install
    ```
 
-
-5. **Starting the Services:**
+6. **Starting the Services:**
 
    a. Start the Twitter API Server:
    ```bash
@@ -97,7 +105,7 @@ This project uses a custom fork of the [ElizaOS Twitter Client](https://github.c
 
    b. Start the Main RinAI Server:
    ```bash
-   cd rinai-multimodal-vtuber
+   cd rinai-multimodal-Intents-agent
    python src/scripts/run_stream.py
    ```
    Follow the prompts to:
