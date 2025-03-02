@@ -16,6 +16,9 @@ from src.db.mongo_manager import MongoManager
 from src.managers.tool_state_manager import ToolStateManager
 from src.utils.keyboard_handler import KeyboardHandler
 from aiohttp import web
+from src.services.monitoring_service import LimitOrderMonitoringService
+from src.clients.coingecko_client import CoinGeckoClient
+from src.clients.near_account_helper import get_near_account
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +53,12 @@ class StreamOrchestrator:
             # Initialize LLM service
             self.llm_service = LLMService()
             
-            # Set default model
-            self.model_type = ModelType.SAO_10K_L31_70B_EURYALE_V2_2
+            # Initialize NEAR account
+            self.near_account = get_near_account()
+            if not self.near_account:
+                logger.warning("NEAR account could not be initialized - limit orders will not work")
+            else:
+                logger.info("NEAR account initialized successfully for limit orders")
             
             # Initialize chat manager if YouTube stream ID is provided
             self.chat_manager = None
@@ -79,6 +86,17 @@ class StreamOrchestrator:
             
             # Initialize schedule service
             self.schedule_service = ScheduleService(config['mongo_uri'])
+            
+            # Initialize monitoring service
+            self.monitoring_service = LimitOrderMonitoringService(
+                mongo_uri=config['mongo_uri'],
+                schedule_manager=None  # Will be set after agent initialization
+            )
+            
+            # Initialize CoinGecko client for price monitoring
+            self.coingecko_client = CoinGeckoClient(
+                api_key=config.get('coingecko_api_key')
+            )
             
             logger.info("StreamOrchestrator initialization complete")
             
@@ -160,26 +178,6 @@ class StreamOrchestrator:
                 'timestamp': datetime.now().isoformat()
             })
             
-            # Check for tool commands before agent processing
-            try:
-                if self.tool_state_manager.should_use_tools(message):
-                    logger.info(f"Detected tool command: {message}")
-                    tool_type = self.tool_state_manager.get_tool_operation_type(message)
-                    logger.info(f"Tool type detected: {tool_type}")
-                    
-                    if tool_type:
-                        try:
-                            result = await self.tool_state_manager.execute_tool(tool_type, message)
-                            logger.info(f"Tool execution result: {result}")
-                            if not result:
-                                logger.warning("Tool execution returned no result")
-                        except Exception as tool_error:
-                            logger.error(f"Tool execution failed: {tool_error}", exc_info=True)
-                            # Continue with agent processing even if tool fails
-            except Exception as e:
-                logger.error(f"Error in tool processing: {e}", exc_info=True)
-                # Continue with agent processing
-            
             # Route through RinAgent
             response = await self.agent.get_response(
                 session_id=self.current_session_id,
@@ -244,10 +242,39 @@ class StreamOrchestrator:
             if self.speech_manager:
                 logger.info("Initializing speech input...")
                 await self.speech_manager.initialize()
-                # Don't auto-start recording, wait for Alt+S
             
             # Start schedule service
             await self.schedule_service.start()
+            
+            # Pass the NEAR account to the orchestrator for IntentsTool to use
+            if hasattr(self.agent, 'orchestrator') and self.near_account:
+                self.agent.orchestrator.near_account = self.near_account
+                # Re-register the IntentsTool with the NEAR account
+                self.agent.orchestrator._register_intents_tool()
+                logger.info("Injected NEAR account into orchestrator for IntentsTool")
+                
+                # Get the IntentsTool from orchestrator's tools registry
+                intents_tool = self.agent.orchestrator.tools.get('intents')
+                if intents_tool:
+                    logger.info("Found IntentsTool in orchestrator's tools registry")
+                else:
+                    logger.error("IntentsTool not found in orchestrator's tools registry!")
+                    # List available tools for debugging
+                    logger.error(f"Available tools: {list(self.agent.orchestrator.tools.keys())}")
+            
+            # Inject dependencies into monitoring service
+            await self.monitoring_service.inject_dependencies(
+                coingecko_client=self.coingecko_client,
+                schedule_manager=self.agent.orchestrator.schedule_manager,
+                near_account=self.near_account,  # Inject the NEAR account
+                intents_tool=intents_tool if 'intents_tool' in locals() else None  # Pass the IntentsTool if found
+            )
+            
+            # Set monitoring service in orchestrator
+            self.agent.orchestrator.set_monitoring_service(self.monitoring_service)
+            
+            # Start monitoring service
+            await self.monitoring_service.start()
             
             logger.info("All services started successfully")
             
@@ -290,6 +317,11 @@ class StreamOrchestrator:
             if hasattr(self, 'schedule_service'):
                 await self.schedule_service.stop()
                 logger.info("Schedule service shutdown complete")
+            
+            # Stop monitoring service
+            if hasattr(self, 'monitoring_service'):
+                await self.monitoring_service.stop()
+                logger.info("Monitoring service shutdown complete")
             
             logger.info("All services shutdown complete")
             

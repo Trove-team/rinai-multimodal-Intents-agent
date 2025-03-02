@@ -3,12 +3,23 @@ from typing import Dict, Any, List, Optional, Literal
 import asyncio
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
+from src.db.db_schema import ContentType, ToolType
+
+class ToolRegistry(BaseModel):
+    """Tool registration configuration"""
+    content_type: ContentType
+    tool_type: ToolType
+    requires_approval: bool = True
+    requires_scheduling: bool = False
+    required_clients: List[str] = []
+    required_managers: List[str] = []
 
 class BaseTool(ABC):
     """Base class for all tools"""
     name: str
     description: str
     version: str
+    registry: ToolRegistry
     
     def __init__(self):
         self.cache = {}
@@ -37,6 +48,11 @@ class BaseTool(ABC):
             'timestamp': now
         }
         return data
+
+    @classmethod
+    def get_registry(cls) -> ToolRegistry:
+        """Get tool registration info"""
+        return cls.registry
 
 class ToolCommand(BaseModel):
     """Structure for tool commands"""
@@ -69,10 +85,11 @@ class AgentResult(BaseModel):
 
 class AgentDependencies(BaseModel):
     """Shared dependencies across all agents"""
-    conversation_id: str
-    user_id: Optional[str]
+    session_id: str
+    user_id: Optional[str] = None
     context: Optional[Dict] = {}
     tools_available: List[str] = []
+    agent: Optional[Any] = None  # Add agent field for user interaction
 
 class TweetApprovalAnalysis(BaseModel):
     """Model for tweet approval command analysis"""
@@ -83,11 +100,16 @@ class TweetApprovalAnalysis(BaseModel):
 
 class TweetContent(BaseModel):
     """Model for individual tweet content"""
-    content: str = Field(description="Content of the tweet")
+    content: str = Field(..., max_length=280)
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 class TweetGenerationResponse(BaseModel):
     """Model for LLM tweet generation response"""
     tweets: List[TweetContent] = Field(description="List of generated tweets")
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for database storage"""
+        return self.dict(exclude_none=True)
 
 class TimeToolParameters(BaseModel):
     """Parameters for time tool operations"""
@@ -135,4 +157,97 @@ class CalendarToolParameters(BaseModel):
     time_max: Optional[str] = Field(
         default=None,
         description="End time for event fetch (ISO format)"
+    )
+
+class ToolParameters(BaseModel):
+    """Base parameters for all tools"""
+    schedule_time: Optional[datetime] = Field(default=None)
+    retry_policy: Optional[Dict] = Field(default=None)
+    execution_window: Optional[Dict] = Field(default=None)
+    custom_params: Dict[str, Any] = Field(default_factory=dict)
+
+class TwitterParameters(ToolParameters):
+    """Twitter-specific tool parameters - matches TwitterParams TypedDict"""
+    custom_params: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Twitter API and content parameters"
+    )
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "custom_params": {
+                    # API Parameters
+                    "account_id": "default",
+                    "media_files": [],
+                    "poll_options": [],
+                    "poll_duration": None,
+                    "reply_settings": None,
+                    "quote_tweet_id": None,
+                    
+                    # Content Parameters
+                    "thread_structure": [],
+                    "mentions": [],
+                    "hashtags": [],
+                    "urls": [],
+                    
+                    # Targeting Parameters
+                    "audience_targeting": {},
+                    "content_category": None,
+                    "sensitivity_level": None,
+                    
+                    # Engagement Parameters
+                    "estimated_engagement": None,
+                    "visibility_settings": {}
+                }
+            }
+        }
+
+class ToolOperation(BaseModel):
+    """Model for tool operations"""
+    session_id: str
+    tool_type: str
+    state: str
+    step: str
+    parameters: ToolParameters  # Updated to use new parameters model
+    input_data: Dict[str, Any] = Field(default_factory=dict)
+    output_data: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    last_updated: datetime
+    end_reason: Optional[str] = None
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for database storage"""
+        return self.dict(exclude_none=True)
+
+class SchedulableToolInterface(ABC):
+    """Interface for tools that can be scheduled"""
+    
+    @abstractmethod
+    async def execute_scheduled_operation(self, operation: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a scheduled operation"""
+        pass
+
+class LimitOrderToolParameters(BaseModel):
+    """Parameters for limit order operations"""
+    from_token: str = Field(description="Token to sell (e.g., NEAR, ETH)")
+    from_amount: float = Field(description="Amount to sell")
+    to_token: str = Field(description="Token to buy (e.g., USDC, ETH)")
+    target_price_usd: float = Field(description="Target price in USD")
+    to_chain: str = Field(
+        default="eth",
+        description="Destination chain for the output token"
+    )
+    expiration_hours: int = Field(
+        default=24,
+        description="Hours until order expires"
+    )
+    destination_address: Optional[str] = Field(
+        default=None,
+        description="Optional destination address for withdrawal"
+    )
+    destination_chain: Optional[str] = Field(
+        default=None,
+        description="Optional destination chain for withdrawal"
     )

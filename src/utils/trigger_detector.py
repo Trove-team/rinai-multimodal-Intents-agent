@@ -1,5 +1,6 @@
 import re
 from typing import Dict, List, Optional
+from src.db.enums import ToolType  # Add this import
 
 class TriggerDetector:
     def __init__(self):
@@ -12,27 +13,32 @@ class TriggerDetector:
                 'keywords': ['tweet', 'twitter', '@', 'post'],
                 'phrases': [
                     'post on twitter', 'post on x', 'send a tweet', 'create a tweet', 'make a tweet',
-                    'write a tweet', 'compose a tweet', 'publish a tweet'
+                    'write a tweet', 'compose a tweet', 'publish a tweet', 'write a thread'
                 ]
             },
 
             'schedule': {
-                'keywords': ['schedule', 'plan', 'series', 'multiple', 'timed', 'batch'],
+                'keywords': [
+                    'schedule', 'plan', 'series', 'multiple', 'timed', 'batch',
+                    'queue', 'later', 'upcoming', 'future', 'tomorrow', 'next'
+                ],
                 'phrases': [
                     'schedule tweets', 'schedule a tweet', 'schedule two tweets', 'schedule three tweets', 'schedule four tweets', 'schedule five tweets', 'schedule six tweets', 'schedule seven tweets', 'schedule eight tweets', 'schedule nine tweets', 'schedule ten tweets', 'schedule 1 tweet', 'schedule 2 tweets', 'schedule 3 tweets', 'schedule 4 tweets', 'schedule 5 tweets', 'schedule 6 tweets', 'schedule 7 tweets', 'schedule 8 tweets', 'schedule 9 tweets', 'schedule 10 tweets', 'plan tweets', 'tweet series', 'queue tweets',
-                    'automate tweets', 'post later'
+                    'queue up', 'line up', 'prepare tweets', 'post later', 'schedule for later', 'set up tweets',
+                    'automate tweets', 'batch tweets'
                 ]
             },
             'immediate': {
-                'keywords': ['tweet now', 'post now', 'send tweet', 'create tweet', 'publish now'],
+                'keywords': ['tweet now', 'post now', 'send tweet', 'create tweet', 'publish now', 'thread'],
                 'phrases': [
-                    'tweet this', 'post this', 'send this tweet', 'create a tweet', 'make a tweet'
+                    'tweet this', 'post this', 'send this tweet', 'create a tweet', 'make a tweet',
+                    'write a tweet thread', 'create a thread', 'start a thread'
                 ]
             },
             'reply': {
-                'keywords': ['reply', 'respond', 'comment', 'thread'],
+                'keywords': ['reply', 'respond', 'comment'],
                 'phrases': [
-                    'reply to this', 'respond to this tweet', 'add a comment', 'continue this thread'
+                    'reply to this', 'respond to this tweet', 'add a comment', 'reply to that'
                 ]
             },
             'retweet': {
@@ -133,6 +139,23 @@ class TriggerDetector:
             ]
         }
 
+        # Add specific Limit Order Tool Triggers
+        self.tool_triggers['intents'] = {
+            'keywords': [
+                'limit order', 'buy when', 'sell when', 'price reaches',
+                'target price', 'execute when', 'trigger price', 'when price hits',
+                'automated trade', 'conditional order', 'swap at'
+            ],
+            'phrases': [
+                'create limit order', 'set up limit order', 'buy when price reaches',
+                'sell when price reaches', 'execute trade at price', 'when price hits',
+                'trade automatically at', 'set target price', 'create order to buy',
+                'create order to sell', 'swap when price', 'exchange at price',
+                'sell tokens when', 'buy tokens when', 'trade NEAR when', 'trade ETH when',
+                'trade BTC when', 'trade USDC when', 'trade SOL when', 'trade USDT when'
+            ]
+        }
+
     def should_use_tools(self, message: str) -> bool:
         """Check if message should trigger tool usage"""
         message = message.lower()
@@ -181,65 +204,74 @@ class TriggerDetector:
         if not self.should_use_twitter(message):
             return None
             
-        # Check for scheduling patterns
-        if any(keyword.lower() in message for keyword in self.twitter_patterns['schedule']['keywords']) or \
-           any(phrase.lower() in message for phrase in self.twitter_patterns['schedule']['phrases']):
+        # Check for scheduling patterns first (most specific)
+        if any(keyword in message for keyword in self.twitter_patterns['schedule']['keywords']) or \
+           any(phrase in message for phrase in self.twitter_patterns['schedule']['phrases']):
             return "schedule_tweets"
             
-        # Check for immediate tweet patterns
-        if any(keyword.lower() in message for keyword in self.twitter_patterns['immediate']['keywords']) or \
-           any(phrase.lower() in message for phrase in self.twitter_patterns['immediate']['phrases']):
-            return "send_tweet"
-            
         # Check for reply patterns
-        if any(keyword.lower() in message for keyword in self.twitter_patterns['reply']['keywords']) or \
-           any(phrase.lower() in message for phrase in self.twitter_patterns['reply']['phrases']):
+        if any(keyword in message for keyword in self.twitter_patterns['reply']['keywords']) or \
+           any(phrase in message for phrase in self.twitter_patterns['reply']['phrases']):
             return "reply_tweet"
             
         # Check for retweet patterns
-        if any(keyword.lower() in message for keyword in self.twitter_patterns['retweet']['keywords']) or \
-           any(phrase.lower() in message for phrase in self.twitter_patterns['retweet']['phrases']):
+        if any(keyword in message for keyword in self.twitter_patterns['retweet']['keywords']) or \
+           any(phrase in message for phrase in self.twitter_patterns['retweet']['phrases']):
             return "retweet"
             
         # Check for like patterns
-        if any(keyword.lower() in message for keyword in self.twitter_patterns['like']['keywords']) or \
-           any(phrase.lower() in message for phrase in self.twitter_patterns['like']['phrases']):
+        if any(keyword in message for keyword in self.twitter_patterns['like']['keywords']) or \
+           any(phrase in message for phrase in self.twitter_patterns['like']['phrases']):
             return "like_tweet"
             
+        # Check for immediate tweet patterns
+        if any(keyword in message for keyword in self.twitter_patterns['immediate']['keywords']) or \
+           any(phrase in message for phrase in self.twitter_patterns['immediate']['phrases']):
+            return "send_tweet"
+            
         # Check for engagement/analytics patterns
-        if any(keyword.lower() in message for keyword in self.twitter_patterns['engagement']['keywords']) or \
-           any(phrase.lower() in message for phrase in self.twitter_patterns['engagement']['phrases']):
+        if any(keyword in message for keyword in self.twitter_patterns['engagement']['keywords']) or \
+           any(phrase in message for phrase in self.twitter_patterns['engagement']['phrases']):
             return "show_analytics"
             
-        # If it's Twitter-related but not matching specific patterns, default to send_tweet
+        # Default to send_tweet for general Twitter actions
         return "send_tweet"
 
     def get_specific_tool_type(self, message: str) -> Optional[str]:
         """Determine specific tool type needed"""
         message = message.lower()
         
-        # Add time and weather checks
+        # Check for limit order patterns FIRST (most specific)
+        if any(keyword.lower() in message for keyword in self.tool_triggers['intents']['keywords']) or \
+           any(phrase.lower() in message for phrase in self.tool_triggers['intents']['phrases']):
+            return ToolType.INTENTS.value  # Return proper enum value
+        
+        # Check Twitter patterns AFTER intents
+        if self.should_use_twitter(message):
+            return ToolType.TWITTER.value  # Return proper enum value
+        
+        # Rest of the tool checks with proper enum values
         if any(keyword.lower() in message for keyword in self.tool_triggers['time']['keywords']) or \
            any(phrase.lower() in message for phrase in self.tool_triggers['time']['phrases']):
-            return "time_tools"
+            return ToolType.TIME.value
         
         if any(keyword.lower() in message for keyword in self.tool_triggers['weather']['keywords']) or \
            any(phrase.lower() in message for phrase in self.tool_triggers['weather']['phrases']):
-            return "weather_tools"
+            return ToolType.WEATHER.value
         
         # Check crypto triggers
         if any(keyword.lower() in message for keyword in self.tool_triggers['crypto']['keywords']) or \
            any(phrase.lower() in message for phrase in self.tool_triggers['crypto']['phrases']):
-            return "crypto_data"
-            
+            return ToolType.CRYPTO.value
+        
         # Check search triggers
         if any(keyword.lower() in message for keyword in self.tool_triggers['search']['keywords']) or \
            any(phrase.lower() in message for phrase in self.tool_triggers['search']['phrases']):
-            return "perplexity_search"
-            
+            return ToolType.SEARCH.value
+        
         # Add calendar check
         if any(keyword.lower() in message for keyword in self.tool_triggers['calendar']['keywords']) or \
            any(phrase.lower() in message for phrase in self.tool_triggers['calendar']['phrases']):
-            return "calendar_tool"
-            
+            return ToolType.CALENDAR.value
+        
         return None 
