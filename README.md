@@ -2,7 +2,7 @@
 
 ![RinAI Multimodal UX](https://github.com/dleerdefi/rinai-multimodal-vtuber/blob/main/assets/images/RinAI%20Multimodal%20UX%20Example.png)
 
-🤖  RinAI is an open-source multi-modal desktop agent that combines speech processing, LLMs, tool automation, state machines and NEAR Intents for cross-chain trading and limit order scheduling. Features include:
+**🤖  RinAI is an open-source multi-modal desktop agent that combines speech processing, LLMs, tool automation, state machines and NEAR Intents for cross-chain trading and limit order scheduling. Features include:**
 
 - 🎙️ Real-time STT/TTS with Groq & 11Labs
 - 💸 Near Intents Integration
@@ -36,17 +36,103 @@ RinAI is built with Python, TypeScript, modern AI services, and integration with
     *   **Perplexity Integration:** Leverage Perplexity's DeepSeek R1 API for web queries
     *   **Cryptocurrency Price & Analytics:** Obtain live and historical crypto price data
  
-
-
 *   **Advanced Chat Agent:**  Based on the [Rin AI Chat Agentic Chat Stack](https://github.com/dleerdefi/peak-ai-agent-stack):
-    *   **GraphRAG Memory:** Graph-based memory for context-aware responses
+    *   **RAG Memory:** Graph-based memory for context-aware responses
     *   **Keyword-Based Intent Recognition:** Fast keyword extraction for memory relevance
     *   **Advanced Context Summarization:** Active summarization for maintaining conversation context
 *   **Smart LLM Gateway:** Dynamically selects optimal LLM based on task complexity
 *   **Streaming Architecture:** End-to-end streaming for minimal latency
 *   **Open Source & Extensible:** Built to be customizable with community contributions welcome
 
+## NEAR Intents Workflow
+
+**_I want to swap 5 NEAR for ETH when NEAR hits $1.20_**
+
+* **Collect All Parameters** in a single flow (e.g., "I want to swap 5 NEAR for ETH when NEAR hits $1.20").
+* **Approval Manager** ensures user reviews all swap details (e.g. chain, rate) before finalizing.
+* **Scheduling & Monitoring** for:
+  * **Immediate** swaps (market orders).
+  * **Future** or **limit-based** swaps (price triggers).
+* **Full Deposit/Execute/Withdraw** flow is **automated**—the agent orchestrates each step, so the user only sees **one** "approve" action.
+
+
+The user can utilize either the speech-to-text functionality or the interface to interact with the agent and create a command; for example: **'Swap 5 NEAR for ETH on Ethereum.'**
+
+1. **Analyze (LLM-based)**
+   * Our AI agent identifies this as a Intents swap command via the **Trigger Detector** , extracting:
+      1. **Source token** (e.g., NEAR)
+      2. **Destination token** (e.g., ETH)
+      3. **Amount** (e.g., 5)
+      4. **Target price** (optional limit)
+      5. **Chain** (if bridging to another blockchain)
+      6. **User's wallet** (for final withdrawal)
+
+2. **Confirm & Approve**
+   * The agent organizes these details into a **Tool Operation**.
+   * The **Approval Manager** presents a summary of the details: "You want to swap 5 NEAR for ETH on Ethereum if NEAR >= $1.20."
+   * **Approval Manager** ensures the user is good to proceed.
+
+3. **Scheduling Activation**
+   * If it's a **limit order** or a timed operation, we spin up a **Monitoring Service** that:
+      1. Polls the **Solver** for quotes every X minutes (or uses a price feed first).
+      2. **If** the solver quote meets user conditions → triggers the swap **immediately**.
+
+4. **Hierarchical State Machine** Execution
+   * Sub-states handle the ephemeral nature of NEAR Intents:
+      1. **Deposit** user's tokens to intents.near.
+      2. **Fetch** solver quote → If user's price is met, accept & finalize the swap.
+      3. **Monitor** cross-chain bridging & fill.
+      4. **Withdraw** final tokens to user's wallet.
+   * The user doesn't manually do each step; the agent orchestrates them under the hood.
+
+5. **Completion**
+   * Once the swap is done, our system marks the **Tool Operation** as COMPLETED.
+   * The user sees a final message: "Your 5 NEAR swapped into ETH on Ethereum. Tokens withdrawn to 0xYourWallet."
+
+
+**This improves the current NEAR Intents experience in the following ways:**
+
+* **Better UX**: Hides the multiple deposit/swap/withdraw steps behind a single "approve or schedule" operation.
+* **Limit Orders**: Users can automatically execute swaps **only** if the solver's price meets their target.
+* **Repeating Trades**: Our scheduling logic supports **multiple tool items** (e.g. "Swap 1 NEAR daily for 5 days at $2.50+").
+* **Scalable**: The same approach can be extended to **other NEAR-based actions** (NFTs, DeFi, multi-chain bridging), harnessing the same hierarchical state machine pattern.
 **Tech Stack:**
+
+## Core Components
+![RinAI Architecture](https://github.com/Trove-team/rinai-multimodal-Intents-agent/blob/main/assets/images/RinAI%20State%20Machines%20Diagram.png?raw=true "State Machines Diagram")
+
+1. **Intents Tool Script**
+    *Manages the complete lifecycle of tool operations
+    * Our **core** bridging logic with NEAR Intents.
+    * Submits/accepts solver quotes, handles deposit/withdraw calls.
+
+2. **Scheduling Manager**
+    *Manages conditional operations like limit orders
+    * The **monitoring** that checks solver quotes (or price feeds) every X minutes.
+    * Triggers the **intent** execution once conditions are met.
+
+3. **Approval Manager**
+     *Handles user authorization workflow
+     *States: PENDING → APPROVED/REJECTED
+     *Allows asynchronous approvals (users can approve hours or days later)
+
+4. **Agent State Manager**
+    *Controls high-level conversation state (NORMAL_CHAT ↔ TOOL_OPERATION)
+    *Manages the transition between conversational interactions and tool executions
+    *Determines when to parse commands vs. engage in regular dialogue
+
+5. **Orchestrator**
+    *Manages the stateful workflow of tool operations
+    *Routes tool operations to the respective managers/state machines
+
+6. **AI Command Parsing**
+   * Uses a large language model (LLM) or any structured approach to parse user's text into **parameters** (tokens, chain, price limit, etc.). 
+
+7. **Advanced Features**
+    *Multi-User Approval Flows: Collaborative workflows where different users handle setup vs. approval
+    *Scheduled Operations: Time-based and condition-based transactions
+    *Recurring Transactions: Support for "Swap 1 NEAR daily for 5 days"
+    *Extensibility: Same architecture supports other NEAR-based actions (NFTs, DeFi)
 
 *   **Backend:** Python, Node.js/TypeScript
 *   **LLMs:** Role-Playing LLM, Claude 3.5
