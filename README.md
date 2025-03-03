@@ -2,7 +2,7 @@
 
 ![RinAI Multimodal UX](https://github.com/dleerdefi/rinai-multimodal-vtuber/blob/main/assets/images/RinAI%20Multimodal%20UX%20Example.png)
 
-🤖 RinAI is an open-source multi-modal AI companion and desktop agent that combines speech processing, LLMs, tool automation, and hierarchical state machines. Features include:
+🤖  RinAI is an open-source multi-modal desktop agent that combines speech processing, LLMs, tool automation, state machines and NEAR Intents for cross-chain trading and limit order scheduling. Features include:
 
 - 🎙️ Real-time STT/TTS with Groq & 11Labs
 - 💸 Near Intents Integration
