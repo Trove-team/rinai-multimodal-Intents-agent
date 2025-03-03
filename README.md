@@ -15,6 +15,8 @@
 
 RinAI is built with Python, TypeScript, modern AI services, and integration with the [NEAR Intents solver bus api](https://docs.near-intents.org/near-intents).
 
+📺 [Watch the NEAR Intents Demo](https://youtu.be/aGqrSthS2JY)
+
 ## Architecture Overview
 ![RinAI Architecture](https://github.com/dleerdefi/rinai-multimodal-vtuber/blob/main/assets/images/RinAI%20Multimodal%20Vtuber%20Diagram.png)
 
